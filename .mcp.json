@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "hermes-bridge": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/hermes-mcp-gateway",
+      "args": ["--api-base", "http://127.0.0.1:8642"],
+      "env": { "HERMES_API_KEY": "${HERMES_API_KEY}" },
+      "timeout": 120000
+    }
+  }
+}

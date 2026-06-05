@@ -1,0 +1,26 @@
+# 어댑터 노트 스토어 / 런타임 상태
+*.sqlite
+*.sqlite-*
+~/.hermes-bridge/
+
+# 비밀값 — 절대 커밋 금지
+.env
+*.key
+*.pem
+HERMES_API_KEY*
+
+# 빌드 산출물
+bin/hermes-mcp-gateway
+!bin/README.md
+dist/
+build/
+*.pyc
+__pycache__/
+.venv/
+venv/
+node_modules/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+*.swp

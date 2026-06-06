@@ -104,10 +104,10 @@
 D6=B 확정 후 산출물 계약을 한곳에 고정 (A1/W3/C4 가 가리키던 값 통합):
 
 ```jsonc
-// .mcp.json (번들) — command 는 OS 별 wrapper, env 는 화이트리스트만(C4)
+// .mcp.json (번들) — command 는 bare `python3`(C2 실측 해결), env 화이트리스트(C4)
 { "mcpServers": { "hermes-bridge": {
-  "command": "${CLAUDE_PLUGIN_ROOT}/bin/hermes-mcp-gateway",   // POSIX; Windows 해석은 W1(아래)
-  "args": ["--api-base", "http://127.0.0.1:8642"],
+  "command": "python3",                                              // Claude Code 가 bare name 해석(검증 ✓)
+  "args": ["${CLAUDE_PLUGIN_ROOT}/bin/hermes_mcp_gateway.py", "--api-base", "http://127.0.0.1:8642"],
   "env": {
     "HERMES_API_KEY": "${HERMES_API_KEY}",       // 사용자 env (C7, 번들 미포함)
     "PYTHONIOENCODING": "utf-8"                   // W3 인코딩
@@ -116,9 +116,9 @@ D6=B 확정 후 산출물 계약을 한곳에 고정 (A1/W3/C4 가 가리키던 
 } } }
 ```
 
-- **wrapper** `bin/hermes-mcp-gateway`(sh)/`.cmd`(Win) = `<HERMES_VENV_PY> "${CLAUDE_PLUGIN_ROOT}/bin/hermes_mcp_gateway.py" "$@"`. `HERMES_VENV_PY`·`HERMES_BIN`(=`hermes` 절대경로, A3/C8)은 **install(W4)이 wrapper 안에 기록**(.mcp.json env 아님 — 사용자별 절대경로).
-- **HERMES_AGENT_PATH 제거 확정(R8)**: D1=CLI 전환으로 어댑터가 Hermes 를 import 안 함 → `_load_send_message_tool`/`HERMES_AGENT_PATH` 는 **A3 에서 코드·env 양쪽 삭제**(WIP `hermes_mcp_gateway.py:187-192` 가 삭제 대상). 초기 분석의 "HERMES_AGENT_PATH 미주입" 갭은 **moot**.
-- **W1 Windows command 해석**: extensionless `bin/hermes-mcp-gateway` 가 `.cmd` 로 안 잡히면 → install 이 OS 별 `.mcp.json` 생성 또는 `.cmd` 직접 지정. A4 PoC 에서 실검증(미해결 시 W1 blocking).
+- **C2 해결(실 launcher 검증)**: `claude mcp list` 로 실측 — extensionless 절대경로 `${CLAUDE_PLUGIN_ROOT}/bin/hermes-mcp-gateway` → **✗ Failed**, 절대 `.cmd` → **✗ Failed**, **bare `python3`/`py` + adapter.py → ✓ Connected**. Claude Code(cross-spawn) 는 Windows 에서 interpreter+args(bare name PATHEXT)만 exec. ∴ command=`python3`(POSIX 표준 + Windows 해석 ✓).
+- **self-bootstrap(어댑터 `_ensure_runtime`)**: bare `python3`(deps 없을 수 있음)로 시작돼도 `mcp`/`httpx` 부재 시 `HERMES_VENV_PY`(install 기록) 또는 `hermes` 옆 python 으로 **`os.execv` 재실행**(C2 + D6=B 통합). venv python 으로 launch 시 즉시 통과.
+- **wrapper**(`bin/hermes-mcp-gateway` sh/cmd)는 manual 실행/디버깅 + install env 캡처용 보조(.mcp.json 은 직접 python3 호출). `HERMES_AGENT_PATH` 제거 확정(R8, D1=CLI).
 
 ---
 
@@ -288,7 +288,10 @@ O ← A/D 후 · F ← 전구간 병렬(감지 코드+문서)
 - **R7(D6 결정 — Codex 상의)**: 사용자 위임으로 D6(빌드도구) 결정. Codex+Claude 독립 일치 → **B(Hermes venv 재사용) primary / onedir PyInstaller fallback / zipapp 개발용**. 근거: mcp→pydantic_core 컴파일(.pyd cp311) 확인→zipapp self-containment 불가, Hermes 필수+호환 deps 보유→PyInstaller redundant+AV비용. 반영: A1(wrapper)/W1/W4(venv 캡처)/C3(frozen→fallback만)/FP8(venv 변동 graceful)/E3. **needs-user 0, Open Dissent 0**.
 - **R8(홀리스틱 페어검토 — Codex 전체 통독)**: 증분 라운드가 놓친 글로벌 6건 발굴 → **GO-WITH-CONDITIONS(8/7/7/8)**. 수정 적용(v1.3): ①track 순서(A4 를 W/D 뒤로, §2 gate+§13 그래프 재작성) ②**B9 노트DDL 구현 트랙 신설**(plan-2 §1.2 OPEN 해소) ③schedule 폴링 surface=`hermes_schedule` job_id 파라미터(5-tool cap, §18 정합) ④**§5.1 최종 `.mcp.json`/wrapper 계약 명시**(HERMES_AGENT_PATH 제거 확정) ⑤canonical error schema(`{error,kind,status?,details?}`, A5/B7/O5 통일) ⑥E1 FP1-8. + Claude 독립 발견(§1 heading/§13 stale) 동시 수정.
 - **R8-final(조건충족 확인)**: 5/6 CLOSED, 1 잔존(§2 gate↔§13 그래프 A5 순서 불일치 — §2 가 A5 를 A2/D1 뒤로 잘못 배치). **v1.4 수정**: A5 는 어댑터 코드라 A1/A3 와 동일 단계(W/D 비의존) → §2 gate 를 §13 에 맞춤(A1/A3/A5→W→A2/D1→A4) + footer 순서 동기. → **GO (무조건), quality 9/10**. 궤적 58→74→83→88→92→96→9/10.
-- **구현 + code-review(R-CR, 4 agent + Codex)**: 전 Track 구현(어댑터 ~590줄, wrappers, install.sh/ps1, admin, tests). review = 2 blocking + 9 major + 23 minor. **수정**: M1/M2(MEDIA 가드를 Hermes `MEDIA_TAG_CLEANUP_RE` 정확 정렬 — scanned==transmitted), M3(async=poll 정정 ↑B1), M4(monotonic+per-req budget), M5(waiting_for_approval), M6(mode 검증), M7(last_status/last_delivery_error 3-state), M8(Windows icacls), M9(async/schedule HTTP 테스트 — E1 27→50), m1-m23 대부분. **E1 50 통과**. 잔존: C1(커밋 — 사용자 승인 영역), C2(W1 Windows command 해석 — A4 PoC external-gated).
+- **구현 + code-review(R-CR, 4 agent + Codex)**: 전 Track 구현(어댑터 ~590줄, wrappers, install.sh/ps1, admin, tests). review = 2 blocking + 9 major + 23 minor. **수정**: M1/M2(MEDIA 가드를 Hermes `MEDIA_TAG_CLEANUP_RE` 정확 정렬 — scanned==transmitted), M3(async=poll 정정 ↑B1), M4(monotonic+per-req budget), M5(waiting_for_approval), M6(mode 검증), M7(last_status/last_delivery_error 3-state), M8(Windows icacls), M9(async/schedule HTTP 테스트 — E1 27→50), m1-m23 대부분. **E1 50 통과**.
+- **C1 해결**: reconcile(origin 37be9cb P1 220줄 supersede) + commit + push + **PR #1 merge → main(`42f777f`)**. fresh-clone 정상.
+- **C2 해결(실 launcher 검증)**: `claude mcp list` 실측 — extensionless/.cmd 절대경로 ✗, **bare `python3` + adapter.py + self-bootstrap ✓ Connected**. `.mcp.json` command=`python3`(↑§5.1) + 어댑터 `_ensure_runtime` self-bootstrap. **A4 PoC = PASS**(Windows 실런치 연결 확인).
+- **E2-HTTP 잔존**: inquiry/schedule live 는 Hermes API server 활성 필요(별도).
 
 ---
 

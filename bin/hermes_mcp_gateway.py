@@ -37,8 +37,34 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-import httpx
-from mcp.server.fastmcp import FastMCP
+def _ensure_runtime() -> None:
+    """C2: deps(mcp/httpx) 없는 python 으로 launch 돼도 Hermes venv python 으로 self re-exec.
+
+    Claude Code 런처는 Windows 에서 extensionless/.cmd 절대경로를 exec 못 함(검증). interpreter+args 만 가능.
+    bundled .mcp.json 은 venv 절대경로를 박을 수 없으므로 bare `python3` 로 시작 → 본 함수가 venv 로 승격.
+    HERMES_VENV_PY(install 기록) 우선, 없으면 `hermes` 바이너리 옆 python 파생."""
+    try:
+        import mcp  # noqa: F401
+        import httpx  # noqa: F401
+        return  # deps 충족 — 정상 진행
+    except ImportError:
+        pass
+    venv_py = os.environ.get("HERMES_VENV_PY", "")
+    if not venv_py:
+        hb = shutil.which("hermes")
+        if hb:
+            cand = Path(hb).resolve().parent / ("python.exe" if os.name == "nt" else "python")
+            if cand.exists():
+                venv_py = str(cand)
+    if venv_py and os.path.realpath(venv_py) != os.path.realpath(sys.executable):
+        os.execv(venv_py, [venv_py, os.path.realpath(__file__), *sys.argv[1:]])
+    # 부트스트랩 불가 → 아래 import 가 명확한 ImportError 로 실패(silent 아님)
+
+
+_ensure_runtime()
+
+import httpx  # noqa: E402
+from mcp.server.fastmcp import FastMCP  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 인코딩 (W3) — stdout/stderr 를 UTF-8 로 강제 (KR Windows cp949 mojibake 방지)

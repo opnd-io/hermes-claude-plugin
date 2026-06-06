@@ -291,7 +291,8 @@ O ← A/D 후 · F ← 전구간 병렬(감지 코드+문서)
 - **구현 + code-review(R-CR, 4 agent + Codex)**: 전 Track 구현(어댑터 ~590줄, wrappers, install.sh/ps1, admin, tests). review = 2 blocking + 9 major + 23 minor. **수정**: M1/M2(MEDIA 가드를 Hermes `MEDIA_TAG_CLEANUP_RE` 정확 정렬 — scanned==transmitted), M3(async=poll 정정 ↑B1), M4(monotonic+per-req budget), M5(waiting_for_approval), M6(mode 검증), M7(last_status/last_delivery_error 3-state), M8(Windows icacls), M9(async/schedule HTTP 테스트 — E1 27→50), m1-m23 대부분. **E1 50 통과**.
 - **C1 해결**: reconcile(origin 37be9cb P1 220줄 supersede) + commit + push + **PR #1 merge → main(`42f777f`)**. fresh-clone 정상.
 - **C2 해결(실 launcher 검증)**: `claude mcp list` 실측 — extensionless/.cmd 절대경로 ✗, **bare `python3` + adapter.py + self-bootstrap ✓ Connected**. `.mcp.json` command=`python3`(↑§5.1) + 어댑터 `_ensure_runtime` self-bootstrap. **A4 PoC = PASS**(Windows 실런치 연결 확인).
-- **E2-HTTP 잔존**: inquiry/schedule live 는 Hermes API server 활성 필요(별도).
+- **E2-HTTP (stub) 추가**: `tests/e2e_http_stub.py` — 어댑터 실 httpx 네트워크 스택을 계약-충실 로컬 stub 으로 검증(실 소켓 I/O + Bearer + output_text 파싱 + job 3-state + strong-key 게이트). **PASS**. E1(httpx mock) 위 단계.
+- **E2-HTTP real-Hermes live 잔존**: inquiry/schedule 를 실 Hermes API server 대상 검증은 API server 활성 필요 → **harness auto-mode classifier 가 `~/.hermes/.env` 수정+API_SERVER_KEY 생성을 credential/service escalation 으로 차단**. 사용자 직접 활성화 또는 명시 권한 부여 필요(우회 불가/금지). 어댑터 HTTP 로직 자체는 E1(mock)+stub(real socket)로 검증 완료 — 미검증은 실 Hermes 비즈니스로직 라운드트립뿐.
 
 ---
 

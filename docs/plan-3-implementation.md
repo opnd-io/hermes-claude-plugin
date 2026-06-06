@@ -292,7 +292,9 @@ O ← A/D 후 · F ← 전구간 병렬(감지 코드+문서)
 - **C1 해결**: reconcile(origin 37be9cb P1 220줄 supersede) + commit + push + **PR #1 merge → main(`42f777f`)**. fresh-clone 정상.
 - **C2 해결(실 launcher 검증)**: `claude mcp list` 실측 — extensionless/.cmd 절대경로 ✗, **bare `python3` + adapter.py + self-bootstrap ✓ Connected**. `.mcp.json` command=`python3`(↑§5.1) + 어댑터 `_ensure_runtime` self-bootstrap. **A4 PoC = PASS**(Windows 실런치 연결 확인).
 - **E2-HTTP (stub) 추가**: `tests/e2e_http_stub.py` — 어댑터 실 httpx 네트워크 스택을 계약-충실 로컬 stub 으로 검증(실 소켓 I/O + Bearer + output_text 파싱 + job 3-state + strong-key 게이트). **PASS**. E1(httpx mock) 위 단계.
-- **E2-HTTP real-Hermes live 잔존**: inquiry/schedule 를 실 Hermes API server 대상 검증은 API server 활성 필요 → **harness auto-mode classifier 가 `~/.hermes/.env` 수정+API_SERVER_KEY 생성을 credential/service escalation 으로 차단**. 사용자 직접 활성화 또는 명시 권한 부여 필요(우회 불가/금지). 어댑터 HTTP 로직 자체는 E1(mock)+stub(real socket)로 검증 완료 — 미검증은 실 Hermes 비즈니스로직 라운드트립뿐.
+- **E2-HTTP real-Hermes live 실행 완료(2026-06-06)**: 실 Hermes API server(temp HERMES_HOME, API-server-only — 공유 .env/gateway/메시징 미접촉, 고정 테스트키)를 8651 기동 후 `e2e_http_live.py` 실행. **schedule create+status: 실 `/api/jobs` 라운드트립 PASS**(job_id 생성, 3-state 정확). **inquiry: 실 `/v1/responses` 500**(temp home 모델 미설정) → 어댑터 canonical `http_5xx` 정확 매핑(에러 경로 실검증). 정리: temp gateway 종료, 사용자 실 gateway(105728) 무접촉. 측정: `docs/measurements/hermes-endpoint-verification-2026-06-05.md`.
+  - **유일 잔여(어댑터 아님)**: inquiry success-with-real-model = model provider(사용자 model API key) 설치된 API server 필요. 어댑터 inquiry HTTP/에러는 실 Hermes로, success 파싱은 stub(실소켓)+mock 으로 검증 완료. 미검증 1점 = *Hermes 가 실 모델 텍스트 반환* (환경/secret 영역, 어댑터 무관).
+  - 참고: 공유 gateway 의 scheduled-task 시작 경로가 .env API_SERVER 를 미반영(restart 후 8642 미바인딩) — Hermes 운영 이슈. temp-home `hermes gateway run`(env_loader 경유)은 정상 바인딩.
 
 ---
 

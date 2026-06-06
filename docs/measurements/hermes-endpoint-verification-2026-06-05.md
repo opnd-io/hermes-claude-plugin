@@ -54,3 +54,17 @@
 1. **send MEDIA**: 어댑터는 `MEDIA:<path>` 를 **message 에 임베드한 채** `hermes send`(positional/stdin)로 전달 — `--file` 사용 금지(본문 읽기 전용). C1 가드는 message 에서 추출한 MEDIA 경로를 전송 전 검증. Hermes `extract_media`+`filter_media_delivery_paths` 가 2차 가드.
 2. **send 플랫폼 분기**: CLI 가 bot-token/standalone(telegram/discord/slack/signal 등) gateway-free 처리; yuanbao/plugin-live 는 gateway 미가동 시 구조화 에러 반환(B4/F2 와 동일 의존, plan-2 §1.4 일치). 어댑터는 exit 1 + 에러 surface, 새 코드 경로 불요.
 3. **send stateless**: `hermes send` 는 `previous_response_id` 미지원(fire-and-forget). context 필요는 inquiry(`/v1/responses`)만 — 불변.
+
+## E2-HTTP real-Hermes live 실행 결과 (2026-06-06)
+
+실 Hermes API server(temp HERMES_HOME, API-server-only, 공유 .env/gateway/메시징 미접촉)를 8651에 기동 후 `tests/e2e_http_live.py` 실행:
+
+| 시나리오 | 표면 | 결과 |
+|---|---|---|
+| schedule create | 실 `POST /api/jobs` | **PASS** — `job_id=6b144104b8ce`, `next_run_at=2099-01-01T00:00:00+09:00` |
+| schedule status | 실 `GET /api/jobs/{id}` | **PASS** — `state=pending` (3-state 판정 정확) |
+| inquiry | 실 `POST /v1/responses` | 실 Hermes **500**(temp home 모델 provider 미설정) → 어댑터 **canonical `http_5xx`** 정확 매핑(에러 경로 실검증) |
+
+- **schedule(생성+상태)는 실 Hermes 라운드트립 전수 검증.** 어댑터 HTTP 호출/응답 파싱/3-state 로직이 실 `/api/jobs` 와 정합.
+- **inquiry success-with-model 만 미검증**: 실 모델 응답은 model provider(사용자 model API key)가 설치된 API server 필요. temp 인스턴스엔 모델 미설정이라 500. 어댑터의 inquiry HTTP/에러 경로는 실 Hermes로, success 파싱은 stub(실소켓)+mock 으로 검증 완료 → 미검증은 *Hermes 가 실 모델 텍스트를 반환하는지* 1점(어댑터 아닌 환경/secret 영역).
+- 정리: temp gateway 종료, temp dir 제거, 사용자 실 gateway(PID 105728) 무접촉.

@@ -1,15 +1,11 @@
 {
   "mcpServers": {
     "hermes-bridge": {
-      "command": "python",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/bin/hermes_mcp_gateway.py",
-        "--api-base",
-        "http://127.0.0.1:8642"
-      ],
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/hermes-mcp-gateway",
+      "args": ["--api-base", "http://127.0.0.1:8642"],
       "env": {
         "HERMES_API_KEY": "${HERMES_API_KEY}",
-        "HERMES_AGENT_PATH": "${HERMES_AGENT_PATH}"
+        "PYTHONIOENCODING": "utf-8"
       },
       "timeout": 120000
     }

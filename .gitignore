@@ -1,7 +1,8 @@
-# 어댑터 노트 스토어 / 런타임 상태
+# 어댑터 노트 스토어 / 런타임 상태 (실 런타임은 ~/.hermes-bridge 라 repo 밖. in-repo 사본만 방어)
 *.sqlite
 *.sqlite-*
-~/.hermes-bridge/
+.hermes-bridge/
+telemetry.jsonl
 
 # 비밀값 — 절대 커밋 금지
 .env
@@ -9,11 +10,10 @@
 *.pem
 HERMES_API_KEY*
 
-# 빌드 산출물
-bin/hermes-mcp-gateway
-!bin/README.md
+# 빌드 산출물 (D6=B: wrapper/adapter 는 소스라 tracked. onedir PyInstaller fallback 만 무시)
 dist/
 build/
+*.spec
 *.pyc
 __pycache__/
 .venv/

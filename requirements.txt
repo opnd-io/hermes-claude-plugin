@@ -1,5 +1,8 @@
 # hermes-bridge 어댑터 런타임 의존성 (Python 3.11+)
-mcp>=1.0
-httpx>=0.27
-# send 도구는 Hermes 의 tools.send_message_tool 을 import 한다 (HERMES_AGENT_PATH 로 경로 지정).
-# P2 패키징: PyInstaller/zipapp 으로 단일 실행파일 + SHA256 체크섬.
+# 상한 pin (plan-3 C6): major 업글 호환 깨짐 방지.
+mcp>=1.0,<2
+httpx>=0.27,<1
+pydantic>=2,<3  # mcp.server.fastmcp 의존 (dev/CI/onedir fallback 경로 — m18)
+# 배포(plan-3 D6=B): 별도 설치 불요 — Hermes venv 의 mcp/httpx/pydantic 을 wrapper(bin/hermes-mcp-gateway)가 재사용.
+#   본 requirements 는 개발/CI(로컬 단위 테스트) 또는 onedir PyInstaller fallback 빌드 시에만 필요.
+# send 는 `hermes send` CLI subprocess 위임(plan-3 D1) — Hermes Python import 없음(HERMES_AGENT_PATH obsolete).

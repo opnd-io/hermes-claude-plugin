@@ -1,0 +1,36 @@
+#!/usr/bin/env sh
+# hermes-bridge launcher (plan-3 D6=B) — run the adapter under Hermes' venv python.
+#
+# 어댑터(.py)는 Hermes 가 제공하는 mcp/httpx/pydantic(호환 Python)으로 실행한다.
+# 우선순위: $HERMES_VENV_PY  >  `hermes` 바이너리 옆 python  >  python3(폴백, 경고).
+# install(scripts/install.sh, W4)이 $HERMES_VENV_PY 를 검증/기록한다. 경로 변동 시 install 재실행(FP8).
+set -eu
+
+DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+ADAPTER="$DIR/hermes_mcp_gateway.py"
+
+# install(W4)이 기록한 절대경로 — Claude Code 가 PATH 미상속 셸로 MCP 를 띄워도 해석 (opnd-codex #105).
+# m20: MSYS($HOME) 와 Windows($USERPROFILE) 가 다를 수 있어 양쪽 탐색. set -u 안전(default-empty).
+for _base in "${HOME:-}" "${USERPROFILE:-}"; do
+  if [ -n "$_base" ] && [ -f "$_base/.hermes-bridge/env.sh" ]; then
+    . "$_base/.hermes-bridge/env.sh"
+    break
+  fi
+done
+
+PY="${HERMES_VENV_PY:-}"
+if [ -z "$PY" ]; then
+  HB="$(command -v hermes 2>/dev/null || true)"
+  if [ -n "$HB" ]; then
+    HB_DIR="$(dirname -- "$HB")"
+    for cand in "$HB_DIR/python" "$HB_DIR/python3"; do
+      if [ -x "$cand" ]; then PY="$cand"; break; fi
+    done
+  fi
+fi
+if [ -z "$PY" ]; then
+  echo "hermes-bridge: Hermes venv python 미발견 — scripts/install.sh 재실행 또는 HERMES_VENV_PY 설정 (plan-3 FP8)" >&2
+  PY="python3"
+fi
+
+exec "$PY" "$ADAPTER" "$@"

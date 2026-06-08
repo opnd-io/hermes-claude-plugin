@@ -1,6 +1,6 @@
 # HANDOFF — 다음 세션 인계
 
-**작성** 2026-06-04 · **상태** 기획 수렴 완료(R4 잔존 0건), 어댑터 미빌드.
+**작성** 2026-06-04 · **갱신** 2026-06-08 · **상태** 구현 완료(P1 어댑터 + P2 패키징) · user scope 설치 + Windows/VSCode sandbox 근본수정 완료.
 
 ## 1. 지금까지 (DONE)
 
@@ -11,13 +11,15 @@
   - R3/R4: §A 바이트 동일(sha1 입증), 표현 정직화 → **양측 CONVERGED**.
 - 본 repo = **2안(플러그인화)** 산출물. 1안(하네스 직접 연동)은 `docs/plan-1-harness-integration.md`(자매, §1 동일).
 
-## 2. 다음 (TODO — 빌드 로드맵, `docs/plan-2-plugin.md` §2)
+## 2. 로드맵 진행 (`docs/plan-2-plugin.md` §2)
 
-- **P1 어댑터 구현** ← *여기서 시작*. `bin/hermes-mcp-gateway`(Python 권장). `bin/README.md`가 빌드 spec.
-  - 5도구 등록 + API 클라이언트(httpx) + 노트 SQLite + 표면별 라우팅/폴링.
-- **P2 패키징** — semver, `/reload-plugins` 워크플로, `scripts/install.sh` 보강, README.
-- **P3 managed-env** — `docs/plan-2-plugin.md` §3.5: managed allowlist deny 환경은 dual-delivery 우회 불가(admin 승인 필수). install.sh가 안내.
-- **P4 운영** — backup/import, retention, runbook, 배포 채널.
+- ✅ **P1 어댑터 구현** — `bin/hermes_mcp_gateway.py` (5도구 + httpx API + 노트 SQLite + 표면별 라우팅/폴링). 단위 50/50 + 실 Hermes e2e PASS.
+- ✅ **P2 패키징** — `.claude-plugin/{plugin,marketplace}.json`, `bin/*.sha256` 무결성, `scripts/install.{sh,ps1}`. `claude plugin install hermes-bridge@hermes-claude-plugin` (user scope) 동작.
+- ✅ **Windows/VSCode sandbox 근본수정 (2026-06-08)** — notes DB temp fallback / `.mcp.json` env 상속(config-invalid teardown 회피) / `harden_perms` additive grant / `busy_timeout`. 상세 `docs/runbook.md` §7 + 글로벌 솔루션 `claude-code-plugin-mcp-windows-sandbox-failures`.
+- ⏳ **P3 managed-env** — `docs/plan-2-plugin.md` §3.5: managed allowlist deny 환경은 우회 불가(admin 승인 필수). install 이 안내.
+- ◐ **P4 운영** — backup/import/retention(`scripts/hermes_bridge_admin.py`) + runbook 작성됨. 배포 채널(팀 마켓플레이스/태그) 정식화 잔여.
+
+> **현재 머신 런타임 메모**: VSCode 확장의 env 미전파(완전종료 필요) 때문에, 인라인 env + venv python 절대경로의 **user-scope `hermesbridge` 서버**(`~/.claude.json`)로 운영 중 — 플러그인 본래 서버는 완전종료 후 env 전파 시 동작. 상세 §7 of runbook / 솔루션 doc.
 
 ## 3. 어댑터 계약 (요약 — SoT는 `docs/plan-2-plugin.md` §1)
 

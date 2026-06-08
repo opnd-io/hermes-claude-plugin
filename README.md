@@ -3,9 +3,11 @@
 Claude Code 플러그인 — **비개발 업무(메시징 · 일정 · 메모 · 노트)를 Hermes Agent에 단방향 위임**한다.
 Claude는 개발 메모리/실행에 집중하고, Hermes는 일정·메시지·회의록 등 비개발 메모리/실행을 맡는다.
 
-> **상태: 기획 수렴 완료(planning converged) · 어댑터 미빌드.**
-> 설계는 Codex(GPT-5.x) + Claude 4라운드 교차검토로 **잔존 0건 수렴**. 다음 작업은 `bin/hermes-mcp-gateway` 어댑터 구현(P1).
-> 어댑터 빌드 전까지 플러그인은 로드 불가(설계 단계).
+> **상태: 구현 완료 · 설치 가능.**
+> 어댑터(`bin/hermes_mcp_gateway.py`, 5도구) 빌드 + 단위 50/50 + 실 Hermes e2e 검증 완료.
+> `.claude-plugin/marketplace.json` 으로 user scope 설치 가능(`claude plugin marketplace add` + `install`).
+> Windows+VSCode 확장/sandbox 호환 근본 수정 반영(notes DB temp fallback / `.mcp.json` env 상속 /
+> `harden_perms` additive grant / `busy_timeout`) — 함정·우회 상세는 `docs/runbook.md` §7.
 
 > 참고: GitHub repo 이름은 `hermes-claude-plugin`, **플러그인/ MCP 서버 내부 이름은 `hermes-bridge`**(`.claude-plugin/plugin.json`). MCP 서버명을 colon 없는 `hermes-bridge`로 둔 것은 enterprise managed allowlist 제약(#32883) 회피 목적 — `docs/plan-2-plugin.md` §3.5.
 
@@ -27,7 +29,7 @@ Claude는 개발 메모리/실행에 집중하고, Hermes는 일정·메시지·
 ```
 .claude-plugin/plugin.json   # 플러그인 manifest (name: hermes-bridge)
 .mcp.json                    # 번들 MCP — bin/hermes-mcp-gateway 가리킴
-bin/                         # 어댑터 (빌드 대상, bin/README.md = 빌드 spec)
+bin/                         # 어댑터 hermes_mcp_gateway.py (5도구, 구현됨) + wrapper/.sha256
 skills/hermes-delegate/      # dev/non-dev 라우팅 skill
 scripts/install.sh           # 전제 점검 (순수, curl|sh 금지)
 docs/
@@ -38,13 +40,14 @@ docs/
 HANDOFF.md                   # 다음 세션 인계 가이드
 ```
 
-## 빠른 시작 (다음 세션)
+## 설치 / 사용
 
-1. `docs/plan-2-plugin.md` §1(어댑터 계약) + `bin/README.md`를 읽는다.
-2. `bin/hermes-mcp-gateway` 어댑터 구현(Python 권장, 5도구 → API 매핑).
-3. `bash scripts/install.sh`로 전제 점검 → Hermes API server + gateway 기동 확인.
-4. 로컬 `.mcp.json` 또는 user scope로 등록 후 5도구 동작 검증.
-5. 자세한 로드맵·테스트·함정은 **HANDOFF.md** 참조.
+1. Hermes Agent 설치 + API server 활성 (`~/.hermes/.env`: `API_SERVER_ENABLED=true`, 강한 `API_SERVER_KEY`).
+2. `export HERMES_API_KEY=<강한키>` (≥32자, placeholder 금지 — §14).
+3. 전제 점검: `bash scripts/install.sh` (Windows: `pwsh scripts/install.ps1`) → venv 캡처 + 6단계 점검.
+4. 플러그인 등록: `claude plugin marketplace add <repo-path>` → `claude plugin install hermes-bridge@hermes-claude-plugin`.
+5. `claude mcp list` 에 `hermes-bridge` + 5도구 노출 확인. **Windows+VSCode 환경의 함정/우회는 `docs/runbook.md` §7 필독.**
+6. 운영(백업/보존/장애)·계약 상세는 `docs/runbook.md`, 설계 SoT 는 `docs/plan-2-plugin.md`/`plan-3-implementation.md`.
 
 ## 라이선스 / 보안
 

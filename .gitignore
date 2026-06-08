@@ -24,3 +24,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.swp
+
+# Claude Code 개인 설정 (플러그인 dev repo 에서 project-scope .mcp.json 중복 비활성)
+.claude/settings.local.json

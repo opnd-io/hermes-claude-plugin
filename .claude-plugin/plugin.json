@@ -1,8 +1,10 @@
 {
   "name": "hermes-bridge",
-  "displayName": "Hermes Bridge",
   "version": "0.1.0",
   "description": "Delegate non-development work (messaging / schedule / memo / notes) from Claude to Hermes Agent via a local stdio MCP adapter",
+  "author": {
+    "name": "opnd-io"
+  },
   "skills": "./skills",
   "mcpServers": "./.mcp.json"
 }

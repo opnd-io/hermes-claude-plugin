@@ -33,6 +33,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -176,13 +177,19 @@ def harden_perms(path: str, *, is_dir: bool = False) -> bool:
     """**best-effort** owner-only 권한 (C5/M8). POSIX chmod / Windows icacls.
 
     성공 True. 실패 시 raise 안 하고 telemetry 경고 후 False(F01) — ~/.hermes-bridge 는 OS 기본
-    user-profile 하위라 이미 owner-scoped이므로 본 함수는 *추가 방어층*(fail-open 이 신규 노출 아님)."""
+    user-profile 하위라 이미 owner-scoped이므로 본 함수는 *추가 방어층*(fail-open 이 신규 노출 아님).
+
+    Windows: **non-destructive** additive grant 만 한다 (`icacls /grant user:F`). 과거 `/inheritance:r`
+    (상속 제거)는 sandbox/제한 컨텍스트에서 USERNAME 이 다르거나 grant 가 실패하면 파일에서 owner ACE
+    까지 날려 'unable to open database file' 락아웃을 유발했다 → 절대 상속 제거 안 함. boundary 는
+    user-profile ACL 이며 본 함수는 부가 layer 이므로 restrict 실패보다 락아웃 회피를 우선한다."""
     try:
         if sys.platform == "win32":
             user = os.environ.get("USERNAME") or os.environ.get("USER")
             if not (user and os.path.exists(path)):
                 return False
-            proc = subprocess.run(["icacls", path, "/inheritance:r", "/grant:r", f"{user}:F"],
+            # additive only: 기존 ACE/상속 보존 → owner 가 절대 락아웃되지 않음
+            proc = subprocess.run(["icacls", path, "/grant", f"{user}:F"],
                                   shell=False, capture_output=True, timeout=10)
             if proc.returncode != 0:
                 _telemetry("harden_perms", "warn", error_kind="acl_failed")  # F01: 실패 가시화
@@ -195,11 +202,34 @@ def harden_perms(path: str, *, is_dir: bool = False) -> bool:
         return False
 
 
-def _notes_conn() -> sqlite3.Connection:
-    db_path = Path(NOTES_DB)
+# 해석된 쓰기 가능 DB 경로 캐시 — NOTES_DB 값이 바뀌면(테스트 등) 무효화하여 재해석.
+_RESOLVED_NOTES_DB: Optional[str] = None
+_RESOLVED_FOR: Optional[str] = None
+
+
+def _notes_db_candidates() -> list[str]:
+    """primary = 설정된 NOTES_DB(기본 ~/.hermes-bridge, 또는 HERMES_BRIDGE_NOTES_DB).
+    fallback = OS temp/hermes-bridge — Claude Code MCP sandbox 가 user-profile(~)에 RX-only 만 주거나
+    보호 경로(AV/네트워크/OneDrive)로 sqlite open 이 실패해도 memo/notes 가 절대 죽지 않게 한다.
+    영속 저장을 원하면 HERMES_BRIDGE_NOTES_DB 를 쓰기 가능한 경로로 지정."""
+    cands = [NOTES_DB]
+    fb = str(Path(tempfile.gettempdir()) / "hermes-bridge" / "notes.sqlite")
+    if fb not in cands:
+        cands.append(fb)
+    return cands
+
+
+def _open_notes_db(db: str) -> sqlite3.Connection:
+    """단일 경로로 연결 + DDL + 권한. 열기 실패 시 sqlite3.Error 를 그대로 raise(상위에서 fallback)."""
+    db_path = Path(db)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    harden_perms(str(db_path.parent), is_dir=True)  # ~/.hermes-bridge owner-only
-    con = sqlite3.connect(NOTES_DB)
+    harden_perms(str(db_path.parent), is_dir=True)  # ~/.hermes-bridge owner-only(additive)
+    con = sqlite3.connect(db)
+    try:
+        # C3-b: 동시 MCP 세션의 single-writer 경합 시 'database is locked' 대신 5s 대기.
+        con.execute("PRAGMA busy_timeout=5000")
+    except sqlite3.Error:
+        pass
     try:
         # C3: WAL for concurrent-session safety. 보호 경로(OneDrive/네트워크/AV 잠금)에서
         # WAL 실패 시 기본 DELETE 모드로 graceful fallback.
@@ -213,10 +243,34 @@ def _notes_conn() -> sqlite3.Connection:
     )
     # C5/M8: owner-only — POSIX chmod 600 + Windows icacls. DB + WAL/SHM 사이드카.
     for suffix in ("", "-wal", "-shm"):
-        sidecar = NOTES_DB + suffix
+        sidecar = db + suffix
         if os.path.exists(sidecar):
             harden_perms(sidecar)
     return con
+
+
+def _notes_conn() -> sqlite3.Connection:
+    """primary NOTES_DB 로 연결 시도, 쓰기 불가(sandbox RX-only home 등)면 temp 로 fallback.
+    해석된 경로는 (현재 NOTES_DB 값에 한해) 캐시 — 매 호출 실패 connect 반복 방지 + 테스트 격리."""
+    global _RESOLVED_NOTES_DB, _RESOLVED_FOR
+    if _RESOLVED_NOTES_DB and _RESOLVED_FOR == NOTES_DB:
+        try:
+            return _open_notes_db(_RESOLVED_NOTES_DB)
+        except (sqlite3.Error, OSError):
+            _RESOLVED_NOTES_DB = None  # 캐시 stale → 재해석
+    # sqlite open 실패뿐 아니라 mkdir 의 OSError/PermissionError(경로 생성 불가)도 fallback 대상.
+    last_err: Optional[Exception] = None
+    for db in _notes_db_candidates():
+        try:
+            con = _open_notes_db(db)
+            if db != NOTES_DB:  # fallback 발동 — 가시화(best-effort, never-throw)
+                _telemetry("notes_db", "warn", error_kind="notes_db_fallback", path=db)
+            _RESOLVED_NOTES_DB, _RESOLVED_FOR = db, NOTES_DB
+            return con
+        except (sqlite3.Error, OSError) as e:
+            last_err = e
+            continue
+    raise last_err if last_err else sqlite3.OperationalError("no writable notes db path")
 
 
 def _derive_dedupe_key(category: str, title: str, body: str) -> str:

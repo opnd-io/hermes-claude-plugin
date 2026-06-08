@@ -1,0 +1,21 @@
+{
+  "name": "hermes-claude-plugin",
+  "owner": {
+    "name": "opnd-io"
+  },
+  "metadata": {
+    "description": "Hermes Bridge marketplace - delegate non-development work (messaging / schedule / memo / notes) from Claude to Hermes Agent via a local stdio MCP adapter.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "hermes-bridge",
+      "description": "Delegate non-development work (messaging / schedule / memo / notes) from Claude to Hermes Agent via a local stdio MCP adapter",
+      "version": "0.1.0",
+      "author": {
+        "name": "opnd-io"
+      },
+      "source": "./"
+    }
+  ]
+}

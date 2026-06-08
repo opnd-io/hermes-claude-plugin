@@ -65,3 +65,12 @@ python scripts/hermes_bridge_admin.py stats
 # telemetry 최근 호출(옵션 활성 시)
 tail ~/.hermes-bridge/telemetry.jsonl
 ```
+
+## 7. Windows + VSCode 확장 / sandbox 주의 (실측 2026-06-08)
+
+VSCode 확장이 MCP 서버를 띄울 때의 환경은 CLI(`claude mcp list`) 와 다르다. 실측으로 확인된 함정과 어댑터의 대응:
+
+- **notes DB 쓰기 (memo/notes)**: Claude Code MCP sandbox 는 서버에 user-profile(`~/.hermes-bridge`) **읽기(RX)만** 허용할 수 있어 SQLite open 이 `unable to open database file` 로 실패한다. → `_notes_conn` 이 primary 경로 실패 시 **OS temp(`<temp>/hermes-bridge/notes.sqlite`)로 자동 fallback** (telemetry `notes_db_fallback` 로 가시화). temp 는 비영속이므로 **영속 저장이 필요하면 `HERMES_BRIDGE_NOTES_DB` 를 쓰기 가능한 경로**(예: 워크스페이스 하위)로 지정한다.
+- **`HERMES_API_KEY` 전달**: `.mcp.json` 의 env 블록은 `${HERMES_API_KEY}` 를 더 이상 선언하지 않는다(미해결 시 확장이 `config-invalid` 로 서버를 즉시 teardown → 도구 0개였음). 어댑터는 런타임에 `os.getenv("HERMES_API_KEY")` 로 **상속된 환경에서 직접 읽는다**. 따라서 inquiry/schedule 가 동작하려면 **확장 프로세스의 환경에 `HERMES_API_KEY` 가 있어야** 한다 — User 환경변수로 설정 후 **VSCode 완전 종료→재실행**(Reload Window 만으로는 새 환경변수 미전파). 키가 없으면 서버는 살아있고 memo/notes/send 는 정상, inquiry/schedule 만 `auth_missing` 반환.
+- **venv 부트스트랩**: `.mcp.json` 은 bare `python3` 로 시작 → `_ensure_runtime` 이 `HERMES_VENV_PY`(env) 또는 PATH 의 `hermes` 로 venv 승격(C2). 확장 환경에 둘 다 없으면 부트스트랩 실패하므로 install 이 `HERMES_VENV_PY` 를 기록/전파하도록 한다.
+- **ACL**: `harden_perms` 는 Windows 에서 **additive grant 만**(상속 제거 안 함) — 과거 `/inheritance:r` 가 sandbox 컨텍스트에서 owner ACE 를 날려 락아웃을 유발했다. 커스텀 공유 경로는 private 로 만들지 않으므로 민감 노트는 user-profile 하위(기본)에 둔다.
